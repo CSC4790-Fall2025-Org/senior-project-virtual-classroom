@@ -1,12 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { app } from "./firebase"; // make sure firebase is initialized
+
+const db = getFirestore(app);
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const handleLogin = async () => {
+  await addDoc(collection(db, "users"), { email, password });
+};
+
   return (
+    
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 relative px-4">
 
       {/* Massive Login Card */}
@@ -51,7 +61,9 @@ export default function LoginPage() {
             </label>
           </div>
 
-          <button className="w-full bg-green-500 hover:bg-green-600 text-white py-6 text-3xl rounded-xl font-bold">
+          <button 
+            onClick={handleLogin}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-6 text-3xl rounded-xl font-bold">
             Sign In
           </button>
 

@@ -1,5 +1,7 @@
 import "./globals.css"
 import Link from "next/link"
+import Image from "next/image"
+import logo from "./logo.png"
 
 export const metadata = {
   title: "The Virtual Classroom",
@@ -14,14 +16,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-50 text-gray-900">
-        <nav className="w-full bg-white shadow-lg py-10 px-16 flex items-center justify-between">
+        <nav className="w-full bg-[#183024] shadow-lg px-16 flex items-center justify-between">
           {/* App Name on the left */}
-          <div className="text-6xl font-extrabold tracking-wide">
-            The Virtual Classroom
+          <div className="text-3xl font-bold text-gray-800 flex items-center">
+            <Image
+              src={logo}
+              alt="App Logo"
+              className="h-40 w-40 inline-block mr-3"
+            />
           </div>
 
           {/* Navigation Links on the right */}
-          <div className="flex gap-14 text-3xl">
+          <div className="flex gap-14 text-3xl text-[#F3F3ED]">
             <Link href="/" className="hover:text-blue-600 font-semibold">
               Home
             </Link>
@@ -34,7 +40,7 @@ export default function RootLayout({
           </div>
         </nav>
 
-        <main className="p-12">{children}</main>
+        <main className="py-1">{children}</main>
       </body>
     </html>
   )

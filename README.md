@@ -1,16 +1,20 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## API Key
+This app uses the OpenAI Realtime API.
+The API Key is currently stored in the file `/senior-project-virtual-classroom/.env.local` 
+- In this file set the variable `OPENAI_API_KEY` to your OpenAI API key
 
-## First install the dependencies with:
 
+
+## Then install the dependencies with:
 ```bash
 npm install
 ```
 
 
-## Getting Started
-
-First, run the development server:
+## Running the App
+Run the development server with:
 
 ```bash
 npm run dev

@@ -41,19 +41,11 @@ export default function Home() {
         model: "gpt-realtime",
       });
 
-      // const session = new RealtimeSession(agent, {
-      //   model: "gpt-4o-mini-realtime-preview",
-      // });
-
       sessionRef.current = session;
 
-      // Attach events BEFORE connect
+      // Log session creation
       (session as any).on("session.created", (event: any) => {
         console.log("Realtime session created:", event);
-      });
-
-      (session as any).on("response", (event: any) => {
-        console.log("AI response event:", event);
       });
 
       await session.connect({ apiKey: ek });
@@ -86,11 +78,22 @@ export default function Home() {
       </header>
 
       {/* Avatar placeholder */}
-      <section className="w-full max-w-md flex items-center justify-center h-48 mb-8 border-2 border-dashed border-gray-600 rounded-lg">
-        <span className="text-gray-400">[Avatar Placeholder]</span>
+      <section
+        className={`w-full max-w-md flex items-center justify-center h-48 mb-8 border-4 rounded-lg
+        transition-all duration-300 ${
+          connected
+            ? "border-emerald-400 bg-emerald-900 shadow-[0_0_30px_10px_#22c55e] animate-pulse"
+            : "border-gray-600 bg-gray-800 shadow-none"
+        }`}
+      >
+        <img
+          src="/avatar.png"
+          alt="AI Student Avatar"
+          className="h-32 w-32 rounded-full object-cover"
+        />
       </section>
 
-       {/* Call-to-action button */}
+      {/* Call-to-action button */}
       <div className="mb-12">
         {!connected ? (
           <button

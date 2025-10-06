@@ -1,5 +1,8 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Branch
+Utilize the main branch when testing the program
+
 ## API Key
 This app uses the OpenAI Realtime API.
 The API Key is currently stored in the file `/senior-project-virtual-classroom/.env.local` 

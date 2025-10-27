@@ -1,130 +1,100 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { RealtimeAgent, RealtimeSession } from "@openai/agents-realtime";
+import React from "react";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+
+const services = [
+  {
+    title: "Lesson Control",
+    subtitle: "& Feedback",
+    description:
+      "Tools to start or record lessons, upload materials, and view real-time student feedback during class.",
+    color: "bg-[#2A6A40]",
+    image: "https://cdn-icons-png.flaticon.com/512/1250/1250615.png",
+    link: "/home", 
+  },
+  {
+    title: "Reports",
+    subtitle: "& Insights",
+    description:
+      "Access graded reports and performance trends to track progress and identify areas for improvement.",
+    color: "bg-[#EAB308]",
+    image: "https://cdn-icons-png.flaticon.com/512/1828/1828926.png",
+    link: "#",
+  },
+  {
+    title: "Settings",
+    subtitle: "& Notifications",
+    description:
+      "Quickly adjust classroom settings and stay updated with alerts about lessons, feedback, and storage.",
+    color: "bg-amber-700",
+    image: "https://cdn-icons-png.flaticon.com/512/2098/2098402.png",
+    link: "#",
+  },
+];
 
 export default function Home() {
-  const [connected, setConnected] = useState(false);
-  const sessionRef = useRef<RealtimeSession | null>(null); // keep session between renders
-
-  async function connectAgent() {
-    try {
-      // Get ephemeral key from backend
-      const res = await fetch("/api/session");
-      const data = await res.json();
-      const ek = data.value;
-      console.log("Ephemeral key:", ek);
-
-      if (!ek) {
-        alert("No ephemeral key returned!");
-        return;
-      }
-
-      // Create AI student agent
-      const agent = new RealtimeAgent({
-        name: "AI Student",
-        instructions: `
-          You are a curious, attentive student in a classroom. 
-          The user is your teacher, and you should interact with them as a real student would. 
-          Behaviors to follow:
-          - Answer questions from the teacher directly and briefly.
-          - If you don’t understand, politely ask the teacher to clarify.
-          - Occasionally ask thoughtful questions to show engagement.
-          - Stay respectful and conversational at all times.
-          - Do not lecture the teacher; keep your role as a student.
-          - Always respond in English, even if the teacher uses another language.
-        `,
-      });
-
-      // Create session
-      const session = new RealtimeSession(agent, {
-        model: "gpt-realtime",
-      });
-
-      sessionRef.current = session;
-
-      // Log session creation
-      (session as any).on("session.created", (event: any) => {
-        console.log("Realtime session created:", event);
-      });
-
-      await session.connect({ apiKey: ek });
-      setConnected(true);
-
-    } catch (err) {
-      console.error("Error connecting voice agent:", err);
-    }
-  }
-
-  function endCall() {
-    if (sessionRef.current) {
-      sessionRef.current.close();
-      sessionRef.current = null;
-      setConnected(false);
-      console.log("Call ended.");
-    }
-  }
-
   return (
-    <main className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-[#183024] to-[#0f1b14] text-white p-8">
-      {/* Header */}
-      <header className="w-full max-w-3xl text-center mb-8">
-        <h1 className="text-4xl font-bold mb-2">Welcome to The Virtual Classroom</h1>
-        <p className="text-lg text-gray-300">
-          This is your interactive teaching space. Click the button below to
-          start a conversation with your AI student. Speak naturally, and the
-          AI will respond in real time.
+    <div className="relative min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_#f8fafc_0%,_#f1f5f9_100%)] opacity-80"></div>
+
+      <div className="relative text-center mb-20 z-10">
+        <p className="text-[#2A6A40] font-semibold uppercase tracking-widest text-2xl">
+          Our Services
         </p>
-      </header>
-
-      {/* Avatar placeholder */}
-      <section
-        className={`w-full max-w-md flex items-center justify-center h-48 mb-8 border-4 rounded-lg
-        transition-all duration-300 ${
-          connected
-            ? "border-emerald-400 bg-emerald-900 shadow-[0_0_30px_10px_#22c55e] animate-pulse"
-            : "border-gray-600 bg-gray-800 shadow-none"
-        }`}
-      >
-        <img
-          src="/avatar.png"
-          alt="AI Student Avatar"
-          className="h-32 w-32 rounded-full object-cover"
-        />
-      </section>
-
-      {/* Call-to-action button */}
-      <div className="mb-12">
-        {!connected ? (
-          <button
-            onClick={connectAgent}
-            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg transition"
-          >
-            🎤 Start Recording
-          </button>
-        ) : (
-          <button
-            onClick={endCall}
-            className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg transition"
-          >
-            ⏹️ End Call
-          </button>
-        )}
+        <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mt-6 max-w-5xl mx-auto leading-snug">
+          Everything you need to teach, improve, and stay in control.
+        </h1>
       </div>
 
-      {/* Transcript / Interaction log */}
-      <section className="w-full max-w-2xl bg-[#1f3528] rounded-xl shadow-inner p-4 min-h-[150px]">
-        <h2 className="text-xl font-semibold mb-2">Transcript</h2>
-        <div className="text-gray-300 text-sm">
-          <p>Your conversation will appear here...</p>
-        </div>
-      </section>
+      <div className="relative flex flex-col md:flex-row items-stretch justify-center gap-16 max-w-[90rem] z-10">
+        {services.map((service, index) => {
+          const CardContent = (
+            <motion.div
+              className={`${service.color} rounded-3xl shadow-2xl hover:shadow-[0_0_60px_rgba(0,0,0,0.25)] transition-transform duration-300 cursor-pointer flex flex-col justify-between items-center text-center p-16`}
+              style={{ width: "36rem", height: "48rem" }}
+              whileHover={{ scale: 1.05 }}
+            >
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="mb-8">
+                  <img
+                    src={service.image}
+                    alt={service.title}
+                    className="w-44 h-44 object-contain drop-shadow-lg"
+                  />
+                </div>
 
-      {/* Footer */}
-      <footer className="mt-auto w-full max-w-3xl text-center text-gray-500 text-sm pt-8">
-        © {new Date().getFullYear()} Virtual Classroom · Built with Next.js +
-        OpenAI Realtime
-      </footer>
-    </main>
+                <div className="mb-8">
+                  <h2 className="text-6xl md:text-7xl font-extrabold leading-tight drop-shadow-md">
+                    {service.title}
+                  </h2>
+                  <h3 className="text-5xl md:text-6xl font-semibold opacity-90 -mt-2">
+                    {service.subtitle}
+                  </h3>
+                </div>
+
+                <p className="text-white/90 text-3xl leading-relaxed max-w-2xl mx-auto">
+                  {service.description}
+                </p>
+              </div>
+
+              <div className="inline-flex items-center font-semibold text-white text-2xl mt-8 justify-center">
+                Learn more <ArrowRight className="ml-3 w-6 h-6" />
+              </div>
+            </motion.div>
+          );
+
+          return service.link && service.link !== "#" ? (
+            <Link key={index} href={service.link}>
+              {CardContent}
+            </Link>
+          ) : (
+            <div key={index}>{CardContent}</div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

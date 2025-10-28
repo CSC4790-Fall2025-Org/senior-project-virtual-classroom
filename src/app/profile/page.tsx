@@ -1,20 +1,58 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Upload } from "lucide-react";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { app } from "../login/firebase";
+
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"general" | "classroom">("general");
 
+  // ---- Auth + Firestore user ----
+  const [user, setUser] = useState<any>(null);
+
   // ---- General page state ----
-  const [twoFA, setTwoFA] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ---- Classroom page state ----
   const [studentGrade, setStudentGrade] = useState("");
   const [language, setLanguage] = useState("English");
 
+  // ---- Load current user + Firestore data ----
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        setEmail(currentUser.email || "");
+
+        try {
+          const docRef = doc(db, "users", currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setName(data.name || "");
+            setPhone(data.phone || "");
+            setProfileImage(data.profileImage || null);
+            setStudentGrade(data.studentGrade || "");
+            setLanguage(data.language || "English");
+          }
+        } catch (error) {
+          console.error("Error loading user data:", error);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ---- Handle Profile Picture Upload ----
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,18 +63,63 @@ export default function SettingsPage() {
     }
   };
 
-  const handleGeneralSubmit = (e: React.FormEvent) => {
+  // ---- Save General Settings ----
+  const handleGeneralSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("General settings submitted:", { twoFA, profileImage });
-    alert("General settings saved!");
+    if (!user) {
+      alert("You must be logged in to save settings.");
+      return;
+    }
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        { name, email, phone, profileImage },
+        { merge: true }
+      );
+      alert("Profile updated successfully!");
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      alert("Failed to save profile.");
+    }
   };
 
-  const handleClassroomSubmit = (e: React.FormEvent) => {
+  // ---- Save Classroom Settings ----
+  const handleClassroomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Classroom settings submitted:", { studentGrade, language, twoFA });
-    alert("Classroom settings saved!");
+    if (!user) {
+      alert("You must be logged in to save settings.");
+      return;
+    }
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        { studentGrade, language },
+        { merge: true }
+      );
+      alert("Classroom settings saved!");
+    } catch (error) {
+      console.error("Error saving classroom settings:", error);
+      alert("Failed to save classroom settings.");
+    }
   };
 
+  // ---- If not logged in ----
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-12 bg-white rounded-3xl shadow-xl">
+          <h1 className="text-5xl font-bold mb-6">Not Signed In</h1>
+          <p className="text-2xl text-gray-600">
+            Please sign in to view your profile.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Main Page Layout ----
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-2xl">
       <div className="flex flex-1">
@@ -65,7 +148,7 @@ export default function SettingsPage() {
                   : "text-gray-700 hover:bg-gray-100"
               }`}
             >
-              General settings
+              General Settings
             </button>
             <button
               onClick={() => setActiveTab("classroom")}
@@ -77,12 +160,6 @@ export default function SettingsPage() {
             >
               Classroom Settings
             </button>
-            <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg font-semibold">
-              Lesson Materials
-            </button>
-            <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg font-semibold">
-              Storage Dashboard
-            </button>
           </nav>
         </aside>
 
@@ -91,7 +168,7 @@ export default function SettingsPage() {
           {activeTab === "general" ? (
             <div className="bg-white rounded-2xl shadow-lg p-12">
               <h2 className="inline-block bg-green-100 text-green-800 px-6 py-3 rounded-lg font-bold mb-12 text-3xl">
-                General settings
+                General Settings
               </h2>
 
               <form
@@ -125,22 +202,23 @@ export default function SettingsPage() {
                   <label className="font-bold text-gray-700 w-40">Name:</label>
                   <input
                     type="text"
-                    name="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your name"
                     className="flex-1 px-6 py-3 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 text-xl"
                   />
                 </div>
 
-                {/* Email */}
+                {/* Email (read-only) */}
                 <div className="flex items-center space-x-4">
                   <label className="font-bold text-gray-700 w-40">
-                    Email address:
+                    Email:
                   </label>
                   <input
                     type="email"
-                    name="email"
-                    placeholder="Enter your email"
-                    className="flex-1 px-6 py-3 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 text-xl"
+                    value={email}
+                    readOnly
+                    className="flex-1 px-6 py-3 border rounded-lg bg-gray-100 text-gray-500 text-xl"
                   />
                 </div>
 
@@ -151,7 +229,8 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="tel"
-                    name="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                     placeholder="Enter your phone number"
                     className="flex-1 px-6 py-3 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 text-xl"
                   />
@@ -178,22 +257,21 @@ export default function SettingsPage() {
                 className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-10"
                 onSubmit={handleClassroomSubmit}
               >
-                {/* Student Grade Level */}
+                {/* Grade Level */}
                 <div className="flex items-center space-x-4">
-                  <label className="font-bold text-gray-700 w-40">Grade Level:</label>
+                  <label className="font-bold text-gray-700 w-40">Grade:</label>
                   <select
                     value={studentGrade}
                     onChange={(e) => setStudentGrade(e.target.value)}
                     className="flex-1 px-6 py-3 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 text-xl"
                   >
-                    <option value="">Select level</option>
+                    <option value="">Select grade</option>
                     <option value="Elementary">Elementary School</option>
                     <option value="Middle">Middle School</option>
                     <option value="High">High School</option>
                     <option value="College">College / University</option>
                   </select>
                 </div>
-
 
                 {/* Language */}
                 <div className="flex items-center space-x-4">
@@ -206,6 +284,9 @@ export default function SettingsPage() {
                     className="flex-1 px-6 py-3 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 text-xl"
                   >
                     <option value="English">English</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Spanish">Spanish</option>
                   </select>
                 </div>
 

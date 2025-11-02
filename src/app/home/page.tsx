@@ -1,49 +1,25 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
 import { RealtimeAgent, RealtimeSession } from "@openai/agents-realtime";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { app } from "../login/firebase"; // adjust path if needed
 
 export default function Home() {
   const [connected, setConnected] = useState(false);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
   const sessionRef = useRef<RealtimeSession | null>(null);
+
   const [recordings, setRecordings] = useState<Blob[]>([]);
   const [transcripts, setTranscripts] = useState<string[]>([]);
   const [reports, setReports] = useState<string[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  const auth = getAuth(app);
-
-  // ✅ Track Firebase Auth State
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-      if (!u) router.push("/login"); // 🚀 redirect to login if not signed in
-    });
-    return () => unsubscribe();
-  }, [auth, router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center p-12 bg-white rounded-3xl shadow-xl">
-          <h1 className="text-4xl font-bold mb-4 text-gray-700">Loading...</h1>
-          <p className="text-lg text-gray-500">Checking your authentication status.</p>
-        </div>
-      </div>
-    );
-  }
-
+  // ==========================
+  // Connect to the realtime agent
+  // ==========================
   async function connectAgent() {
     try {
+      // Start recording immediately
       await startRecording();
 
+      // Get ephemeral key from backend
       const res = await fetch("/api/session");
       const data = await res.json();
       const ek = data.value;
@@ -74,6 +50,9 @@ export default function Home() {
     }
   }
 
+  // ==========================
+  // End call
+  // ==========================
   function endCall() {
     stopRecording();
     if (sessionRef.current) {
@@ -84,6 +63,9 @@ export default function Home() {
     }
   }
 
+  // ==========================
+  // Recording logic
+  // ==========================
   async function startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
@@ -98,6 +80,7 @@ export default function Home() {
       const blob = new Blob(chunks, { type: "audio/webm" });
       setRecordings((prev) => [...prev, blob]);
 
+      // ✅ After call ends: transcribe + generate report
       const transcript = await transcribeAudio(blob);
       setTranscripts((prev) => [...prev, transcript]);
 
@@ -115,19 +98,21 @@ export default function Home() {
     }
   }
 
+  // ==========================
+  // Send recording to backend for transcription
+  // ==========================
   async function transcribeAudio(blob: Blob) {
     const formData = new FormData();
     formData.append("file", blob, "lesson.webm");
 
-    const res = await fetch("/api/transcribe", {
-      method: "POST",
-      body: formData,
-    });
-
+    const res = await fetch("/api/transcribe", { method: "POST", body: formData });
     const data = await res.json();
     return data.text ?? "Transcription failed";
   }
 
+  // ==========================
+  // Send transcript to backend for AI evaluation report
+  // ==========================
   async function generateReport(transcript: string) {
     const res = await fetch("/api/report", {
       method: "POST",
@@ -139,6 +124,9 @@ export default function Home() {
     return data.report ?? "Failed to generate report";
   }
 
+  // ==========================
+  // UI
+  // ==========================
   return (
     <main className="flex flex-col items-center justify-start min-h-screen bg-gradient-to-b from-[#183024] to-[#0f1b14] text-white p-16">
       <header className="w-full max-w-3xl text-center mb-16">

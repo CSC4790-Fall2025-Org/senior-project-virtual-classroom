@@ -16,6 +16,6 @@ export async function GET() {
   });
 
 const data = await resp.json();
-console.log("🔑 OpenAI response:", data);
+console.log("OpenAI response:", data);
 return NextResponse.json(data);
 }

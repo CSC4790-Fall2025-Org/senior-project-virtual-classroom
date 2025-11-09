@@ -1,6 +1,13 @@
 "use client";
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 import { RealtimeAgent, RealtimeSession } from "@openai/agents-realtime";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { app } from "../login/firebase";
+
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 export default function Home() {
   const [connected, setConnected] = useState(false);
@@ -11,15 +18,82 @@ export default function Home() {
   const [reports, setReports] = useState<string[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
+  const [user, setUser] = useState<any>(null);
+  const [studentGrade, setStudentGrade] = useState<string>("");
+
+  // ==========================
+  // Load current user + Firestore data
+  // ==========================
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const docRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setStudentGrade(data.studentGrade || "");
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ==========================
+  // Helper: choose AI behavior based on grade
+  // ==========================
+  function getStudentInstructions(grade: string) {
+    switch (grade) {
+      case "Elementary":
+        return `
+          You are an enthusiastic elementary school student, and the user is your teacher.
+          Speak simply, use short sentences, and show lots of curiosity.
+          Ask basic "why" or "how" questions and show excitement to learn.
+          If something confuses you, say so kindly.
+          Keep your answers positive and brief.
+        `;
+      case "Middle":
+        return `
+          You are a middle school student, and the user is your teacher.
+          You're curious but sometimes unsure.
+          Ask good questions and think out loud when problem solving.
+          Keep your responses conversational, clear, and honest.
+        `;
+      case "High":
+        return `
+          You are a high school student, and the user is your teacher.
+          Speak respectfully and think critically.
+          Engage with ideas thoughtfully, give short but reasoned answers.
+          Ask deeper questions occasionally, but stay humble as a learner.
+        `;
+      case "College":
+        return `
+          You are a college student, and the user is your teacher.
+          Be articulate and analytical but still conversational.
+          Respond with clear reasoning and curiosity.
+          Occasionally challenge ideas politely or connect them to broader topics.
+        `;
+      default:
+        return `
+          You are a curious, attentive student.
+          The user is your teacher, and you should interact with them as a real student would.
+          Behaviors to follow:
+          - Answer questions from the teacher directly and briefly.
+          - If you don’t understand, politely ask the teacher to clarify.
+          - Occasionally ask thoughtful questions to show engagement.
+          - Stay respectful and conversational at all times.
+          - Do not lecture the teacher; keep your role as a student.
+        `;
+    }
+  }
+
   // ==========================
   // Connect to the realtime agent
   // ==========================
   async function connectAgent() {
     try {
-      // Start recording immediately
       await startRecording();
 
-      // Get ephemeral key from backend
       const res = await fetch("/api/session");
       const data = await res.json();
       const ek = data.value;
@@ -30,10 +104,8 @@ export default function Home() {
 
       const agent = new RealtimeAgent({
         name: "AI Student",
-        instructions: `
-          You are a curious, attentive student in a classroom. 
-          Answer questions directly, stay respectful, converse naturally.
-        `,
+        instructions: getStudentInstructions(studentGrade),
+        voice: "echo",
       });
 
       const session = new RealtimeSession(agent, { model: "gpt-realtime" });
@@ -80,7 +152,6 @@ export default function Home() {
       const blob = new Blob(chunks, { type: "audio/webm" });
       setRecordings((prev) => [...prev, blob]);
 
-      // ✅ After call ends: transcribe + generate report
       const transcript = await transcribeAudio(blob);
       setTranscripts((prev) => [...prev, transcript]);
 
@@ -134,6 +205,11 @@ export default function Home() {
         <p className="text-2xl text-gray-300">
           Start a conversation with your AI student. Speak naturally, and the AI will respond.
         </p>
+        {studentGrade && (
+          <p className="mt-4 text-xl text-emerald-400">
+            🎓 Current student level: {studentGrade}
+          </p>
+        )}
       </header>
 
       <section

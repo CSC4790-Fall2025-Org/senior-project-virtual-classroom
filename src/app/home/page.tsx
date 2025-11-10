@@ -1,6 +1,13 @@
 "use client";
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 import { RealtimeAgent, RealtimeSession } from "@openai/agents-realtime";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { app } from "../login/firebase";
+
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 export default function Home() {
   const [connected, setConnected] = useState(false);
@@ -11,15 +18,86 @@ export default function Home() {
   const [reports, setReports] = useState<string[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
+  const [user, setUser] = useState<any>(null);
+  const [studentGrade, setStudentGrade] = useState<string>("");
+
+  // New states for recording control
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // ==========================
+  // Load current user + Firestore data
+  // ==========================
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const docRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setStudentGrade(data.studentGrade || "");
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ==========================
+  // Helper: choose AI behavior based on grade
+  // ==========================
+  function getStudentInstructions(grade: string) {
+    switch (grade) {
+      case "Elementary":
+        return `
+          You are an enthusiastic elementary school student, and the user is your teacher.
+          Speak simply, use short sentences, and show lots of curiosity.
+          Ask basic "why" or "how" questions and show excitement to learn.
+          If something confuses you, say so kindly.
+          Keep your answers positive and brief.
+        `;
+      case "Middle":
+        return `
+          You are a middle school student, and the user is your teacher.
+          You're curious but sometimes unsure.
+          Ask good questions and think out loud when problem solving.
+          Keep your responses conversational, clear, and honest.
+        `;
+      case "High":
+        return `
+          You are a high school student, and the user is your teacher.
+          Speak respectfully and think critically.
+          Engage with ideas thoughtfully, give short but reasoned answers.
+          Ask deeper questions occasionally, but stay humble as a learner.
+        `;
+      case "College":
+        return `
+          You are a college student, and the user is your teacher.
+          Be articulate and analytical but still conversational.
+          Respond with clear reasoning and curiosity.
+          Occasionally challenge ideas politely or connect them to broader topics.
+        `;
+      default:
+        return `
+          You are a curious, attentive student.
+          The user is your teacher, and you should interact with them as a real student would.
+          Behaviors to follow:
+          - Answer questions from the teacher directly and briefly.
+          - If you don’t understand, politely ask the teacher to clarify.
+          - Occasionally ask thoughtful questions to show engagement.
+          - Stay respectful and conversational at all times.
+          - Do not lecture the teacher; keep your role as a student.
+        `;
+    }
+  }
+
   // ==========================
   // Connect to the realtime agent
   // ==========================
   async function connectAgent() {
     try {
-      // Start recording immediately
       await startRecording();
 
-      // Get ephemeral key from backend
       const res = await fetch("/api/session");
       const data = await res.json();
       const ek = data.value;
@@ -30,10 +108,8 @@ export default function Home() {
 
       const agent = new RealtimeAgent({
         name: "AI Student",
-        instructions: `
-          You are a curious, attentive student in a classroom. 
-          Answer questions directly, stay respectful, converse naturally.
-        `,
+        instructions: getStudentInstructions(studentGrade),
+        voice: "echo",
       });
 
       const session = new RealtimeSession(agent, { model: "gpt-realtime" });
@@ -64,7 +140,7 @@ export default function Home() {
   }
 
   // ==========================
-  // Recording logic
+  // Recording logic (new version)
   // ==========================
   async function startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -76,25 +152,47 @@ export default function Home() {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      setRecordings((prev) => [...prev, blob]);
+mediaRecorder.onstop = async () => {
+  const blob = new Blob(chunks, { type: "audio/webm" });
 
-      // ✅ After call ends: transcribe + generate report
-      const transcript = await transcribeAudio(blob);
-      setTranscripts((prev) => [...prev, transcript]);
+  // ✅ Replace previous recording, not append
+  setRecordings([blob]);
 
-      const report = await generateReport(transcript);
-      setReports((prev) => [...prev, report]);
-    };
+  // ✅ Replace previous transcript, not append
+  const transcript = await transcribeAudio(blob);
+  setTranscripts([transcript]);
+
+  // ✅ Replace previous report, not append
+  const report = await generateReport(transcript);
+  setReports([report]);
+};
+
 
     mediaRecorder.start();
+    setIsRecording(true);
+    setIsPaused(false);
+  }
+
+  function pauseOrResumeRecording() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+
+    if (recorder.state === "recording") {
+      recorder.pause();
+      setIsPaused(true);
+    } else if (recorder.state === "paused") {
+      recorder.resume();
+      setIsPaused(false);
+    }
   }
 
   function stopRecording() {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
       mediaRecorderRef.current = null;
+      setIsRecording(false);
+      setIsPaused(false);
     }
   }
 
@@ -134,6 +232,11 @@ export default function Home() {
         <p className="text-2xl text-gray-300">
           Start a conversation with your AI student. Speak naturally, and the AI will respond.
         </p>
+        {studentGrade && (
+          <p className="mt-4 text-xl text-emerald-400">
+            🎓 Current student level: {studentGrade}
+          </p>
+        )}
       </header>
 
       <section
@@ -151,24 +254,51 @@ export default function Home() {
         />
       </section>
 
-      <div className="mb-16">
-        {!connected ? (
-          <button
-            onClick={connectAgent}
-            className="px-16 py-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg transition text-4xl"
-          >
-            🎤 Start Recording
-          </button>
-        ) : (
-          <button
-            onClick={endCall}
-            className="px-16 py-8 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg transition text-4xl"
-          >
-            ⏹️ End Call
-          </button>
-        )}
-      </div>
+ {/* ====== Control Buttons ====== */}
+<div className="mb-16 flex flex-col items-center gap-6">
+  {!isRecording && !connected ? (
+    <button
+      onClick={async () => {
+        await startRecording();
+        await connectAgent();
+      }}
+      className="px-16 py-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg transition text-4xl"
+    >
+      🎤 Start Recording
+    </button>
+  ) : (
+    <div className="flex gap-6">
+      <button
+        onClick={pauseOrResumeRecording}
+        className={`px-10 py-6 ${
+          isPaused ? "bg-gray-500 hover:bg-gray-600" : "bg-yellow-500 hover:bg-yellow-600"
+        } text-white font-semibold rounded-xl shadow-lg transition text-3xl`}
+      >
+        {isPaused ? "▶️ Resume" : "⏸️ Pause"}
+      </button>
 
+      <button
+        onClick={() => {
+          stopRecording();
+          if (sessionRef.current) {
+            sessionRef.current.close();
+            sessionRef.current = null;
+            setConnected(false);
+          }
+          setIsRecording(false);
+          setIsPaused(false);
+          console.log("Recording and AI stopped.");
+        }}
+        className="px-10 py-6 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg transition text-3xl"
+      >
+        ⏹️ Stop
+      </button>
+    </div>
+  )}
+</div>
+
+
+      {/* ====== Transcript, Reports, Recordings ====== */}
       <section className="w-full max-w-2xl bg-[#1f3528] rounded-xl shadow-inner p-8 min-h-[300px]">
         <h2 className="text-2xl font-semibold mb-4">Transcript</h2>
         <div className="text-gray-300 text-xl mb-6">
@@ -193,6 +323,62 @@ export default function Home() {
           ))}
         </div>
       </section>
+{/* ====== Save Lesson Button ====== */}
+<div className="mt-8 flex justify-center">
+  <button
+    onClick={async () => {
+      if (!user) {
+        alert("You must be logged in to save lessons.");
+        return;
+      }
+
+      if (recordings.length === 0 || transcripts.length === 0 || reports.length === 0) {
+        alert("Please finish a recording before saving.");
+        return;
+      }
+
+      try {
+        // Convert Blob to base64 for Firestore storage
+        const audioBlob = recordings[0];
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const audioBase64 = reader.result as string;
+
+          const lessonData = {
+            date: new Date().toISOString(),
+            transcript: transcripts[0],
+            report: reports[0],
+            audio: audioBase64,
+          };
+
+          // Save under user's Firestore doc
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+          let existingLessons: any[] = [];
+
+          if (userSnap.exists() && userSnap.data().savedLessons) {
+            existingLessons = userSnap.data().savedLessons;
+          }
+
+          // Keep max 5 lessons (optional)
+          const updatedLessons = [lessonData, ...existingLessons].slice(0, 5);
+
+          await setDoc(userRef, { savedLessons: updatedLessons }, { merge: true });
+
+          alert("✅ Lesson saved to your profile!");
+        };
+
+        reader.readAsDataURL(audioBlob);
+      } catch (error) {
+        console.error("Error saving lesson:", error);
+        alert("Failed to save lesson.");
+      }
+    }}
+    className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition text-2xl"
+  >
+    💾 Save Lesson
+  </button>
+</div>
 
       <footer className="mt-auto w-full max-w-3xl text-center text-gray-500 text-xl pt-8">
         © {new Date().getFullYear()} Virtual Classroom · Built with Next.js + OpenAI Realtime

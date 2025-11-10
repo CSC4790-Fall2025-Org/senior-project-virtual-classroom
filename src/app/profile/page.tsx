@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Trash2 } from "lucide-react";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { app } from "../login/firebase";
@@ -10,7 +10,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<"general" | "classroom">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "classroom" | "lessons">("general");
 
   // ---- Auth + Firestore user ----
   const [user, setUser] = useState<any>(null);
@@ -160,12 +160,23 @@ export default function SettingsPage() {
             >
               Classroom Settings
             </button>
+            <button
+              onClick={() => setActiveTab("lessons")}
+              className={`w-full text-left px-4 py-3 rounded-lg font-semibold ${
+                activeTab === "lessons"
+                  ? "bg-green-100 text-green-800 font-bold"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Saved Lessons
+            </button>
           </nav>
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 px-16 py-12">
-          {activeTab === "general" ? (
+          {activeTab === "general" && (
+            // --- General Settings Tab ---
             <div className="bg-white rounded-2xl shadow-lg p-12">
               <h2 className="inline-block bg-green-100 text-green-800 px-6 py-3 rounded-lg font-bold mb-12 text-3xl">
                 General Settings
@@ -247,7 +258,10 @@ export default function SettingsPage() {
                 </div>
               </form>
             </div>
-          ) : (
+          )}
+
+          {activeTab === "classroom" && (
+            // --- Classroom Settings Tab ---
             <div className="bg-white rounded-2xl shadow-lg p-12">
               <h2 className="inline-block bg-green-100 text-green-800 px-6 py-3 rounded-lg font-bold mb-12 text-3xl">
                 Classroom Settings
@@ -302,8 +316,95 @@ export default function SettingsPage() {
               </form>
             </div>
           )}
+
+          {activeTab === "lessons" && (
+            // --- Saved Lessons Tab ---
+            <div className="bg-white rounded-2xl shadow-lg p-12">
+              <h2 className="inline-block bg-green-100 text-green-800 px-6 py-3 rounded-lg font-bold mb-8 text-3xl">
+                Saved Lessons
+              </h2>
+
+              {!user && <p>Please sign in to view your saved lessons.</p>}
+
+              {user && <SavedLessons userId={user.uid} />}
+            </div>
+          )}
         </main>
       </div>
+    </div>
+  );
+}
+
+// ==========================
+// SavedLessons Subcomponent
+// ==========================
+function SavedLessons({ userId }: { userId: string }) {
+  const [lessons, setLessons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLessons = async () => {
+      try {
+        const docRef = doc(getFirestore(app), "users", userId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().savedLessons) {
+          setLessons(docSnap.data().savedLessons);
+        }
+      } catch (err) {
+        console.error("Error loading saved lessons:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLessons();
+  }, [userId]);
+
+  const handleDelete = async (index: number) => {
+    try {
+      const updatedLessons = lessons.filter((_, i) => i !== index);
+      await setDoc(doc(getFirestore(app), "users", userId), { savedLessons: updatedLessons }, { merge: true });
+      setLessons(updatedLessons);
+      alert("Lesson deleted successfully!");
+    } catch (err) {
+      console.error("Error deleting lesson:", err);
+      alert("Failed to delete lesson.");
+    }
+  };
+
+  if (loading) return <p className="text-gray-500 text-xl">Loading lessons...</p>;
+  if (lessons.length === 0)
+    return <p className="text-gray-600 text-xl">No saved lessons yet.</p>;
+
+  return (
+    <div className="space-y-8">
+      {lessons.map((lesson, idx) => (
+        <div
+          key={idx}
+          className="border rounded-xl p-6 bg-gray-50 shadow-inner relative"
+        >
+          <button
+            onClick={() => handleDelete(idx)}
+            className="absolute top-4 right-4 text-red-600 hover:text-red-800 transition"
+            title="Delete Lesson"
+          >
+            <Trash2 className="h-6 w-6" />
+          </button>
+          <p className="text-gray-700 font-bold text-2xl mb-2">
+            Lesson {idx + 1} — {new Date(lesson.date).toLocaleString()}
+          </p>
+          <p className="text-gray-600 mb-4">
+            <span className="font-semibold">Transcript:</span>{" "}
+            {lesson.transcript.slice(0, 200)}...
+          </p>
+          <p className="text-gray-600 mb-4">
+            <span className="font-semibold">Report:</span>{" "}
+            {lesson.report.slice(0, 200)}...
+          </p>
+          {lesson.audio && (
+            <audio controls src={lesson.audio} className="w-full" />
+          )}
+        </div>
+      ))}
     </div>
   );
 }

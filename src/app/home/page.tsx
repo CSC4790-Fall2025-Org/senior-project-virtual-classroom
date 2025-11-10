@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { RealtimeAgent, RealtimeSession } from "@openai/agents-realtime";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { app } from "../login/firebase";
 
@@ -20,6 +20,10 @@ export default function Home() {
 
   const [user, setUser] = useState<any>(null);
   const [studentGrade, setStudentGrade] = useState<string>("");
+
+  // New states for recording control
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   // ==========================
   // Load current user + Firestore data
@@ -136,7 +140,7 @@ export default function Home() {
   }
 
   // ==========================
-  // Recording logic
+  // Recording logic (new version)
   // ==========================
   async function startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -148,24 +152,47 @@ export default function Home() {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      setRecordings((prev) => [...prev, blob]);
+mediaRecorder.onstop = async () => {
+  const blob = new Blob(chunks, { type: "audio/webm" });
 
-      const transcript = await transcribeAudio(blob);
-      setTranscripts((prev) => [...prev, transcript]);
+  // ✅ Replace previous recording, not append
+  setRecordings([blob]);
 
-      const report = await generateReport(transcript);
-      setReports((prev) => [...prev, report]);
-    };
+  // ✅ Replace previous transcript, not append
+  const transcript = await transcribeAudio(blob);
+  setTranscripts([transcript]);
+
+  // ✅ Replace previous report, not append
+  const report = await generateReport(transcript);
+  setReports([report]);
+};
+
 
     mediaRecorder.start();
+    setIsRecording(true);
+    setIsPaused(false);
+  }
+
+  function pauseOrResumeRecording() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+
+    if (recorder.state === "recording") {
+      recorder.pause();
+      setIsPaused(true);
+    } else if (recorder.state === "paused") {
+      recorder.resume();
+      setIsPaused(false);
+    }
   }
 
   function stopRecording() {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
       mediaRecorderRef.current = null;
+      setIsRecording(false);
+      setIsPaused(false);
     }
   }
 
@@ -227,24 +254,51 @@ export default function Home() {
         />
       </section>
 
-      <div className="mb-16">
-        {!connected ? (
-          <button
-            onClick={connectAgent}
-            className="px-16 py-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg transition text-4xl"
-          >
-            🎤 Start Recording
-          </button>
-        ) : (
-          <button
-            onClick={endCall}
-            className="px-16 py-8 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg transition text-4xl"
-          >
-            ⏹️ End Call
-          </button>
-        )}
-      </div>
+ {/* ====== Control Buttons ====== */}
+<div className="mb-16 flex flex-col items-center gap-6">
+  {!isRecording && !connected ? (
+    <button
+      onClick={async () => {
+        await startRecording();
+        await connectAgent();
+      }}
+      className="px-16 py-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg transition text-4xl"
+    >
+      🎤 Start Recording
+    </button>
+  ) : (
+    <div className="flex gap-6">
+      <button
+        onClick={pauseOrResumeRecording}
+        className={`px-10 py-6 ${
+          isPaused ? "bg-gray-500 hover:bg-gray-600" : "bg-yellow-500 hover:bg-yellow-600"
+        } text-white font-semibold rounded-xl shadow-lg transition text-3xl`}
+      >
+        {isPaused ? "▶️ Resume" : "⏸️ Pause"}
+      </button>
 
+      <button
+        onClick={() => {
+          stopRecording();
+          if (sessionRef.current) {
+            sessionRef.current.close();
+            sessionRef.current = null;
+            setConnected(false);
+          }
+          setIsRecording(false);
+          setIsPaused(false);
+          console.log("Recording and AI stopped.");
+        }}
+        className="px-10 py-6 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg transition text-3xl"
+      >
+        ⏹️ Stop
+      </button>
+    </div>
+  )}
+</div>
+
+
+      {/* ====== Transcript, Reports, Recordings ====== */}
       <section className="w-full max-w-2xl bg-[#1f3528] rounded-xl shadow-inner p-8 min-h-[300px]">
         <h2 className="text-2xl font-semibold mb-4">Transcript</h2>
         <div className="text-gray-300 text-xl mb-6">
@@ -269,6 +323,62 @@ export default function Home() {
           ))}
         </div>
       </section>
+{/* ====== Save Lesson Button ====== */}
+<div className="mt-8 flex justify-center">
+  <button
+    onClick={async () => {
+      if (!user) {
+        alert("You must be logged in to save lessons.");
+        return;
+      }
+
+      if (recordings.length === 0 || transcripts.length === 0 || reports.length === 0) {
+        alert("Please finish a recording before saving.");
+        return;
+      }
+
+      try {
+        // Convert Blob to base64 for Firestore storage
+        const audioBlob = recordings[0];
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const audioBase64 = reader.result as string;
+
+          const lessonData = {
+            date: new Date().toISOString(),
+            transcript: transcripts[0],
+            report: reports[0],
+            audio: audioBase64,
+          };
+
+          // Save under user's Firestore doc
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+          let existingLessons: any[] = [];
+
+          if (userSnap.exists() && userSnap.data().savedLessons) {
+            existingLessons = userSnap.data().savedLessons;
+          }
+
+          // Keep max 5 lessons (optional)
+          const updatedLessons = [lessonData, ...existingLessons].slice(0, 5);
+
+          await setDoc(userRef, { savedLessons: updatedLessons }, { merge: true });
+
+          alert("✅ Lesson saved to your profile!");
+        };
+
+        reader.readAsDataURL(audioBlob);
+      } catch (error) {
+        console.error("Error saving lesson:", error);
+        alert("Failed to save lesson.");
+      }
+    }}
+    className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition text-2xl"
+  >
+    💾 Save Lesson
+  </button>
+</div>
 
       <footer className="mt-auto w-full max-w-3xl text-center text-gray-500 text-xl pt-8">
         © {new Date().getFullYear()} Virtual Classroom · Built with Next.js + OpenAI Realtime

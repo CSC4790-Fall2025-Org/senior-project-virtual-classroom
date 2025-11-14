@@ -1,100 +1,82 @@
 "use client";
 
-import React from "react";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-
-const services = [
-  {
-    title: "Lesson Control",
-    subtitle: "& Feedback",
-    description:
-      "Tools to start or record lessons, upload materials, and view real-time student feedback during class.",
-    color: "bg-[#2A6A40]",
-    image: "https://cdn-icons-png.flaticon.com/512/1250/1250615.png",
-    link: "/home", 
-  },
-  {
-    title: "Reports",
-    subtitle: "& Insights",
-    description:
-      "Access graded reports and performance trends to track progress and identify areas for improvement.",
-    color: "bg-[#EAB308]",
-    image: "https://cdn-icons-png.flaticon.com/512/1828/1828926.png",
-    link: "#",
-  },
-  {
-    title: "Settings",
-    subtitle: "& Notifications",
-    description:
-      "Quickly adjust classroom settings and stay updated with alerts about lessons, feedback, and storage.",
-    color: "bg-amber-700",
-    image: "https://cdn-icons-png.flaticon.com/512/2098/2098402.png",
-    link: "#",
-  },
-];
+import { BookOpen, Mic, FileText, Brain, ArrowRight } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_#f8fafc_0%,_#f1f5f9_100%)] opacity-80"></div>
+    <div className="relative min-h-screen bg-gray-50 flex flex-col items-center justify-center overflow-hidden text-gray-900">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_#f8fafc_0%,_#eef4ef_100%)]" />
 
-      <div className="relative text-center mb-20 z-10">
-        <p className="text-[#2A6A40] font-semibold uppercase tracking-widest text-2xl">
-          Our Services
-        </p>
-        <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mt-6 max-w-5xl mx-auto leading-snug">
-          Everything you need to teach, improve, and stay in control.
+      {/* Hero Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 text-center mt-24 mb-16 max-w-3xl px-6"
+      >
+        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight mb-6">
+          Welcome to <span className="text-green-700"> The Virtual Classroom</span>
         </h1>
-      </div>
+        <p className="text-xl text-gray-600 mb-10 leading-relaxed">
+          Teach your own AI-powered student, receive instant feedback, and
+          improve your teaching skills — all in one interactive learning space.
+        </p>
 
-      <div className="relative flex flex-col md:flex-row items-stretch justify-center gap-16 max-w-[90rem] z-10">
-        {services.map((service, index) => {
-          const CardContent = (
-            <motion.div
-              className={`${service.color} rounded-3xl shadow-2xl hover:shadow-[0_0_60px_rgba(0,0,0,0.25)] transition-transform duration-300 cursor-pointer flex flex-col justify-between items-center text-center p-16`}
-              style={{ width: "36rem", height: "48rem" }}
-              whileHover={{ scale: 1.05 }}
-            >
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <div className="mb-8">
-                  <img
-                    src={service.image}
-                    alt={service.title}
-                    className="w-44 h-44 object-contain drop-shadow-lg"
-                  />
-                </div>
+        <Link
+          href="/classroom"
+          className="inline-flex items-center px-8 py-4 bg-green-600 text-white rounded-xl text-lg font-semibold shadow-md hover:bg-green-700 transition"
+        >
+          Start Teaching <ArrowRight className="ml-2 h-5 w-5" />
+        </Link>
+      </motion.section>
 
-                <div className="mb-8">
-                  <h2 className="text-6xl md:text-7xl font-extrabold leading-tight drop-shadow-md">
-                    {service.title}
-                  </h2>
-                  <h3 className="text-5xl md:text-6xl font-semibold opacity-90 -mt-2">
-                    {service.subtitle}
-                  </h3>
-                </div>
+      {/* Features Section */}
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.8 }}
+        className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-10 px-10 max-w-6xl mb-24"
+      >
+        {[
+          {
+            icon: <Mic className="h-10 w-10 text-green-700" />,
+            title: "Real Conversations",
+            desc: "Speak naturally — the AI student listens, responds, and learns just like a real one.",
+          },
+          {
+            icon: <FileText className="h-10 w-10 text-green-700" />,
+            title: "Instant Feedback",
+            desc: "Receive detailed reports after each session to help refine your teaching methods.",
+          },
+          {
+            icon: <Brain className="h-10 w-10 text-green-700" />,
+            title: "Save & Review Lessons",
+            desc: "Store your best lessons, replay audio, and track your progress over time.",
+          },
+        ].map((f, i) => (
+          <motion.div
+            key={i}
+            whileHover={{ scale: 1.03 }}
+            className="bg-white rounded-2xl shadow-md p-8 text-center border border-gray-200"
+          >
+            <div className="mb-4 flex justify-center">{f.icon}</div>
+            <h3 className="text-2xl font-semibold text-gray-800 mb-3">
+              {f.title}
+            </h3>
+            <p className="text-gray-600 text-lg leading-relaxed">{f.desc}</p>
+          </motion.div>
+        ))}
+      </motion.section>
 
-                <p className="text-white/90 text-3xl leading-relaxed max-w-2xl mx-auto">
-                  {service.description}
-                </p>
-              </div>
-
-              <div className="inline-flex items-center font-semibold text-white text-2xl mt-8 justify-center">
-                Learn more <ArrowRight className="ml-3 w-6 h-6" />
-              </div>
-            </motion.div>
-          );
-
-          return service.link && service.link !== "#" ? (
-            <Link key={index} href={service.link}>
-              {CardContent}
-            </Link>
-          ) : (
-            <div key={index}>{CardContent}</div>
-          );
-        })}
-      </div>
+      {/* Call to Action / Footer */}
+      <footer className="relative z-10 text-center pb-10">
+        <p className="text-gray-500 text-lg">
+          © {new Date().getFullYear()} Virtual Classroom · Built with Next.js + OpenAI
+        </p>
+      </footer>
     </div>
   );
 }

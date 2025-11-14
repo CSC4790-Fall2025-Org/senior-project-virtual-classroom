@@ -1,7 +1,7 @@
 import "./globals.css"
 import Link from "next/link"
 import Image from "next/image"
-import logo from "./logo.png"
+import logo from "./Logo.png"
 
 export const metadata = {
   title: "The Virtual Classroom",
@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-50 text-gray-900">
-        <nav className="w-full bg-[#183024] shadow-lg px-16 flex items-center justify-between">
+        <nav className="w-full bg-[#5E7A60] shadow-lg px-16 flex items-center justify-between">
           {/* App Name on the left */}
           <div className="text-3xl font-bold text-gray-800 flex items-center">
             <Link href={"/"}>
@@ -30,12 +30,19 @@ export default function RootLayout({
           </div>
 
           {/* Navigation Links on the right */}
-<div className="flex gap-14 text-3xl text-[#F3F3ED]">
+<div className="flex gap-14 text-3xl text-[#FAFAF0]">
   <Link
     href="/"
     className="relative font-semibold transition duration-300 hover:text-[] hover:scale-105 active:scale-95"
   >
     Home
+    <span className="absolute left-0 -bottom-1 h-[2px] w-0 bg-[#FFD700] transition-all duration-300 group-hover:w-full"></span>
+  </Link>
+    <Link
+    href="/classroom"
+    className="relative font-semibold transition duration-300 hover:text-[] hover:scale-105 active:scale-95"
+  >
+    Classroom
     <span className="absolute left-0 -bottom-1 h-[2px] w-0 bg-[#FFD700] transition-all duration-300 group-hover:w-full"></span>
   </Link>
   <Link

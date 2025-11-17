@@ -1,7 +1,7 @@
 import "./globals.css"
 import Link from "next/link"
 import Image from "next/image"
-import logo from "./Logo.png"
+import logo from "./logo.png"
 
 export const metadata = {
   title: "The Virtual Classroom",

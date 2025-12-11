@@ -38,7 +38,6 @@ export default function Home() {
   const [studentLanguage, setStudentLanguage] = useState<string>("English");
 
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
 
   // Load user + Firestore settings
   useEffect(() => {
@@ -140,20 +139,6 @@ export default function Home() {
 
     mediaRecorder.start();
     setIsRecording(true);
-    setIsPaused(false);
-  }
-
-  function pauseOrResumeRecording() {
-    const rec = mediaRecorderRef.current;
-    if (!rec) return;
-
-    if (rec.state === "recording") {
-      rec.pause();
-      setIsPaused(true);
-    } else if (rec.state === "paused") {
-      rec.resume();
-      setIsPaused(false);
-    }
   }
 
   function stopRecording() {
@@ -165,7 +150,6 @@ export default function Home() {
     mediaRecorderRef.current = null;
 
     setIsRecording(false);
-    setIsPaused(false);
   }
 
   // Transcription
@@ -269,26 +253,12 @@ export default function Home() {
               🎤 Start Recording
             </button>
           ) : (
-            <div className="flex gap-4">
-              <button
-                onClick={pauseOrResumeRecording}
-                className={`px-6 py-3 text-white font-semibold rounded-lg text-lg ${
-                  isPaused ? "bg-[#A7A7A7]" : "bg-[#E6C84E]"
-                }`}
-              >
-                {isPaused ? "▶️ Resume" : "⏸️ Pause"}
-              </button>
-
-              <button
-                onClick={() => {
-                  stopRecording();
-                  endCall();
-                }}
-                className="px-6 py-3 bg-[#D65555] text-white font-semibold rounded-lg text-lg"
-              >
-                ⏹️ Stop
-              </button>
-            </div>
+            <button
+              onClick={endCall}
+              className="px-8 py-4 bg-[#D65555] hover:bg-[#b84343] text-white font-semibold rounded-xl text-xl"
+            >
+              ⏹️ Stop
+            </button>
           )}
         </section>
 
@@ -297,7 +267,9 @@ export default function Home() {
           {/* Transcript */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold border-b pb-1 mb-3">Transcript</h2>
-            {transcripts.length ? transcripts.map((t, i) => <p key={i}>{t}</p>) : (
+            {transcripts.length ? (
+              transcripts.map((t, i) => <p key={i}>{t}</p>)
+            ) : (
               <p className="italic text-gray-500">Transcript will appear here.</p>
             )}
           </div>
@@ -305,7 +277,13 @@ export default function Home() {
           {/* Report */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold border-b pb-1 mb-3">Student Report</h2>
-            {reports.length ? reports.map((r, i) => <div key={i} className="bg-white p-4 rounded-md">{r}</div>) : (
+            {reports.length ? (
+              reports.map((r, i) => (
+                <div key={i} className="bg-white p-4 rounded-md">
+                  {r}
+                </div>
+              ))
+            ) : (
               <p className="italic text-gray-500">Report will appear here.</p>
             )}
           </div>
@@ -313,9 +291,11 @@ export default function Home() {
           {/* Audio */}
           <div>
             <h2 className="text-xl font-semibold border-b pb-1 mb-3">Recordings</h2>
-            {recordings.length ? recordings.map((r, i) => (
-              <audio key={i} controls src={URL.createObjectURL(r)} className="w-full" />
-            )) : (
+            {recordings.length ? (
+              recordings.map((r, i) => (
+                <audio key={i} controls src={URL.createObjectURL(r)} className="w-full" />
+              ))
+            ) : (
               <p className="italic text-gray-500">No recordings yet.</p>
             )}
           </div>
